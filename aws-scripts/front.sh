@@ -8,16 +8,18 @@ set -e
 SCRIPT_DIR="$(cd -- "$(dirname -- "$0")" && pwd)"
 PROJECT_ROOT="$(cd -- "$SCRIPT_DIR/.." && pwd)"
 
-# Funciones para leer/escribir el fichero lab-state.json
-source "$SCRIPT_DIR/jq-functions.sh"
+# Funciones para leer las salidas de la pila de CloudFormation
+source "$SCRIPT_DIR/stack-functions.sh"
 KEY_PATH="$PROJECT_ROOT/ssh-key/labsuser.pem"
 APP_PATH="$PROJECT_ROOT/eventhub-front-react"
 
 # Ruta absoluta: el lote SFTP se encuentra aunque el comando no se lance desde la raíz.
 SFTP_BATCH_FILE="$SCRIPT_DIR/sftp-batch-file.txt"
 
-# PublicIp lo dejó ec2.sh en lab-state.json.
-PUBLIC_IP=$(state_require PublicIp)
+# PublicIp es una salida de la pila de CDK. La pila es EventHubStack, salvo que se indique otra
+# en STACK_NAME (la vista previa de un PR es EventHubStack-pr-<número>).
+STACK_NAME="${STACK_NAME:-EventHubStack}"
+PUBLIC_IP=$(salida_requerida "$STACK_NAME" PublicIp)
 
 if [ ! -f "$KEY_PATH" ]; then
     echo "Error: No se encontró la clave SSH en: $KEY_PATH"
@@ -70,7 +72,7 @@ echo "Publicando los ficheros en /var/www/html..."
 ssh -T -o StrictHostKeyChecking=no -i "$KEY_PATH" ubuntu@"$PUBLIC_IP" << 'ENDSSH'
 set -e
 
-# Sustituye la página de carga de nginx.sh por el frontend compilado.
+# Sustituye la página por defecto de Nginx por el frontend compilado.
 sudo rm -rf /var/www/html/*
 sudo mv /tmp/app_dist/* /var/www/html/
 sudo rm -rf /tmp/app_dist
